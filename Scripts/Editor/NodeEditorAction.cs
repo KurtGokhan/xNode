@@ -193,7 +193,7 @@ namespace XNodeEditor {
                         } else if (IsHoveringNode && IsHoveringTitle(hoveredNode)) {
                             // If mousedown on node header, select or deselect
                             if (!Selection.Contains(hoveredNode)) {
-                                SelectNode(hoveredNode, e.control || e.shift);
+                                SelectObject(hoveredNode, e.control || e.shift);
                                 if (!e.control && !e.shift) selectedReroutes.Clear();
                             } else if (e.control || e.shift) DeselectNode(hoveredNode);
 
@@ -260,7 +260,8 @@ namespace XNodeEditor {
                         } else if (IsDraggingLink) {
                             // If connection is valid, save it
                             if (draggedOutputTargetLink != null && draggedOutputLink.CanConnectTo(draggedOutputTargetLink)) {
-                                draggedOutputLink.Connect(draggedOutputTargetLink);
+                                XNode.NodeLink link = draggedOutputLink.Connect(draggedOutputTargetLink);
+                                SelectObject(link, false);
                             }
                             // Destroy link if there is no target node
                             else if (draggedOutputTargetLink == null && NodeEditorPreferences.GetSettings().dragToCreate && autoConnectOutputLink != null) {
@@ -291,7 +292,7 @@ namespace XNodeEditor {
                         // If click node header, select it.
                         if (currentActivity == NodeActivity.HoldNode && !(e.control || e.shift)) {
                             selectedReroutes.Clear();
-                            SelectNode(hoveredNode, false);
+                            SelectObject(hoveredNode, false);
 
                             // Double click to center node
                             if (isDoubleClick) {
@@ -320,7 +321,7 @@ namespace XNodeEditor {
                             } else if (IsHoveringPort) {
                                 ShowPortContextMenu(hoveredPort);
                             } else if (IsHoveringNode && IsHoveringTitle(hoveredNode)) {
-                                if (!Selection.Contains(hoveredNode)) SelectNode(hoveredNode, false);
+                                if (!Selection.Contains(hoveredNode)) SelectObject(hoveredNode, false);
                                 autoConnectOutput = null;
                                 autoConnectOutputLink = null;
                                 GenericMenu menu = new GenericMenu();
@@ -355,7 +356,7 @@ namespace XNodeEditor {
                             }
                         } else {
                             foreach (XNode.Node node in graph.nodes) {
-                                SelectNode(node, true);
+                                SelectObject(node, true);
                             }
                         }
                         Repaint();
@@ -635,7 +636,8 @@ namespace XNodeEditor {
                 var inputPort = inputLinks.FirstOrDefault(x => x.LinkType == linkType);
                 inputPort = inputPort ?? inputLinks.FirstOrDefault(x => x.LinkType.IsAssignableFrom(linkType));
                 if (inputPort != null) {
-                    autoConnectOutputLink.Connect(new XNode.NodeLinkPort(node, inputPort));
+                    XNode.NodeLink link = autoConnectOutputLink.Connect(new XNode.NodeLinkPort(node, inputPort));
+                    SelectObject(link, false);
                     EditorUtility.SetDirty(graph);
                     if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
                 }

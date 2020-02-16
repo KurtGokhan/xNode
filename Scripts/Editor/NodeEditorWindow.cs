@@ -162,7 +162,7 @@ namespace XNodeEditor {
             return new Vector2(xOffset, yOffset);
         }
 
-        public void SelectNode(XNode.Node node, bool add) {
+        public void SelectObject(Object node, bool add) {
             if (add) {
                 List<Object> selection = new List<Object>(Selection.objects);
                 selection.Add(node);

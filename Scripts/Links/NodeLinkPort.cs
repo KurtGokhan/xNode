@@ -64,8 +64,10 @@ namespace XNode {
             return canConnectThis && canConnectOther;
         }
 
-        public void Connect(NodeLinkPort other) {
-            other.Link.Connect(other.Node, GetEmptyLink());
+        public NodeLink Connect(NodeLinkPort other) {
+            NodeLink link = GetEmptyLink();
+            other.Link.Connect(other.Node, link);
+            return link;
         }
         public void Disconnect(NodeLinkPort other) {
             var existing = GetConnections().Find(x => x.to == other.Node || x.from == other.Node);
