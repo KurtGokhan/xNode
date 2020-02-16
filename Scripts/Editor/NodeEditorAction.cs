@@ -568,7 +568,7 @@ namespace XNodeEditor {
 
             if (IsDraggingLink) {
                 Gradient gradient = graphEditor.GetNoodleGradient(draggedOutputLink, null);
-                float thickness = graphEditor.GetNoodleThickness(draggedOutputLink, null);
+                float thickness = graphEditor.GetNoodleThickness(null);
                 NoodlePath path = graphEditor.GetNoodlePath(draggedOutputLink, null);
                 NoodleStroke stroke = graphEditor.GetNoodleStroke(draggedOutputLink, null);
 
@@ -605,10 +605,11 @@ namespace XNodeEditor {
             //Get node position
             Vector2 nodePos = GridToWindowPosition(node.position);
             float width;
+            float height = graphEditor.GetHeaderHeight(node);
             Vector2 size;
             if (nodeSizes.TryGetValue(node, out size)) width = size.x;
             else width = 200;
-            Rect windowRect = new Rect(nodePos, new Vector2(width / zoom, 30 / zoom));
+            Rect windowRect = new Rect(nodePos, new Vector2(width / zoom, height / zoom));
             return windowRect.Contains(mousePos);
         }
 

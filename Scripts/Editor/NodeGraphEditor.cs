@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -137,8 +137,9 @@ namespace XNodeEditor {
             return NodeEditorPreferences.GetSettings().noodleStroke;
         }
 
-        public virtual float GetNoodleThickness(XNode.NodeLinkPort output, XNode.NodeLinkPort input) {
-            return 5f;
+        public virtual float GetNoodleThickness(XNode.NodeLink link) {
+            if (!link) return 5f;
+            return Selection.Contains(link) ? 12f : 5f;
         }
 
         public virtual NoodlePath GetNoodlePath(XNode.NodeLinkPort output, XNode.NodeLinkPort input) {
@@ -147,6 +148,10 @@ namespace XNodeEditor {
 
         public virtual NoodleStroke GetNoodleStroke(XNode.NodeLinkPort output, XNode.NodeLinkPort input) {
             return NodeEditorPreferences.GetSettings().noodleStroke;
+        }
+
+        public virtual float GetHeaderHeight(XNode.Node node) {
+            return 30f;
         }
 
         /// <summary> Returned color is used to color ports </summary>

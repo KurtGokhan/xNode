@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -380,7 +380,7 @@ namespace XNodeEditor {
                         NodeLinkPort input = link.GetToPort();
 
                         Gradient noodleGradient = graphEditor.GetNoodleGradient(output, input);
-                        float noodleThickness = graphEditor.GetNoodleThickness(output, input);
+                        float noodleThickness = graphEditor.GetNoodleThickness(link);
                         NoodlePath noodlePath = graphEditor.GetNoodlePath(output, input);
                         NoodleStroke noodleStroke = graphEditor.GetNoodleStroke(output, input);
 
