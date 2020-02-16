@@ -19,6 +19,7 @@ namespace XNodeEditor {
         /// <summary> Fires every whenever a node was modified through the editor </summary>
         public static Action<XNode.Node> onUpdateNode;
         public readonly static Dictionary<XNode.NodePort, Vector2> portPositions = new Dictionary<XNode.NodePort, Vector2>();
+        public readonly static Dictionary<XNode.NodeLinkPort, Vector2> linkPositions = new Dictionary<XNode.NodeLinkPort, Vector2>();
 
 #if ODIN_INSPECTOR
         protected internal static bool inNodeEditor = false;
@@ -67,7 +68,7 @@ namespace XNodeEditor {
             serializedObject.ApplyModifiedProperties();
 
 #if ODIN_INSPECTOR
-            // Call repaint so that the graph window elements respond properly to layout changes coming from Odin    
+            // Call repaint so that the graph window elements respond properly to layout changes coming from Odin
             if (GUIHelper.RepaintRequested) {
                 GUIHelper.ClearRepaintRequest();
                 window.Repaint();
@@ -132,11 +133,11 @@ namespace XNodeEditor {
             OnRename();
             AssetDatabase.ImportAsset(AssetDatabase.GetAssetPath(target));
         }
-        
+
         /// <summary> Called after this node's name has changed. </summary>
         public virtual void OnRename() { }
-        
-        
+
+
         [AttributeUsage(AttributeTargets.Class)]
         public class CustomNodeEditorAttribute : Attribute,
         XNodeEditor.Internal.NodeEditorBase<NodeEditor, NodeEditor.CustomNodeEditorAttribute, XNode.Node>.INodeEditorAttrib {

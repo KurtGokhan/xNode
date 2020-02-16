@@ -94,6 +94,34 @@ namespace XNodeEditor {
             return grad;
         }
 
+        public virtual Gradient GetNoodleGradient(XNode.NodeLinkPort output, XNode.NodeLinkPort input) {
+            Gradient grad = new Gradient();
+
+            // If dragging the noodle, draw solid, slightly transparent
+            if (input == null) {
+                Color a = GetTypeColor(output?.Item2?.LinkType);
+                grad.SetKeys(
+                    new GradientColorKey[] { new GradientColorKey(a, 0f) },
+                    new GradientAlphaKey[] { new GradientAlphaKey(0.6f, 0f) }
+                );
+            }
+            // If normal, draw gradient fading from one input color to the other
+            else {
+                Color a = GetTypeColor(output.Item2?.LinkType);
+                Color b = GetTypeColor(input.Item2?.LinkType);
+                // If any port is hovered, tint white
+                if (window.hoveredLink == output || window.hoveredLink == input) {
+                    a = Color.Lerp(a, Color.white, 0.8f);
+                    b = Color.Lerp(b, Color.white, 0.8f);
+                }
+                grad.SetKeys(
+                    new GradientColorKey[] { new GradientColorKey(a, 0f), new GradientColorKey(b, 1f) },
+                    new GradientAlphaKey[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) }
+                );
+            }
+            return grad;
+        }
+
         /// <summary> Returned float is used for noodle thickness </summary>
         /// <param name="output"> The output this noodle comes from. Never null. </param>
         /// <param name="input"> The output this noodle comes from. Can be null if we are dragging the noodle. </param>
@@ -109,9 +137,26 @@ namespace XNodeEditor {
             return NodeEditorPreferences.GetSettings().noodleStroke;
         }
 
+        public virtual float GetNoodleThickness(XNode.NodeLinkPort output, XNode.NodeLinkPort input) {
+            return 5f;
+        }
+
+        public virtual NoodlePath GetNoodlePath(XNode.NodeLinkPort output, XNode.NodeLinkPort input) {
+            return NodeEditorPreferences.GetSettings().noodlePath;
+        }
+
+        public virtual NoodleStroke GetNoodleStroke(XNode.NodeLinkPort output, XNode.NodeLinkPort input) {
+            return NodeEditorPreferences.GetSettings().noodleStroke;
+        }
+
         /// <summary> Returned color is used to color ports </summary>
         public virtual Color GetPortColor(XNode.NodePort port) {
             return GetTypeColor(port.ValueType);
+        }
+
+        /// <summary> Returned color is used to color ports </summary>
+        public virtual Color GetLinkColor(XNode.NodeLinkDefinition link) {
+            return GetTypeColor(link.LinkType);
         }
 
         /// <summary> Returns generated color for a type. This color is editable in preferences </summary>

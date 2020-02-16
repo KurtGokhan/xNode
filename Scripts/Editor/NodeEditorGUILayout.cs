@@ -23,8 +23,11 @@ namespace XNodeEditor {
         public static void PropertyField(SerializedProperty property, GUIContent label, bool includeChildren = true, params GUILayoutOption[] options) {
             if (property == null) throw new NullReferenceException();
             XNode.Node node = property.serializedObject.targetObject as XNode.Node;
+            XNode.NodeLinkDefinition link = XNode.NodeDataCache.GetLinkCacheInfo(node.GetType(), property.name);
             XNode.NodePort port = node.GetPort(property.name);
-            PropertyField(property, label, port, includeChildren);
+
+            if (link != null) PropertyField(property, label, new XNode.NodeLinkPort(node, link));
+            else PropertyField(property, label, port, includeChildren);
         }
 
         /// <summary> Make a field for a serialized property. Manual node port override. </summary>
@@ -170,6 +173,51 @@ namespace XNodeEditor {
             }
         }
 
+        /// <summary> Make a field for a serialized property. Manual node port override. </summary>
+        public static void PropertyField(SerializedProperty property, GUIContent label, XNode.NodeLinkPort con) {
+            Rect rect = new Rect();
+            XNode.Node node = con.Node;
+            XNode.NodeLinkDefinition link = con.Link;
+            XNode.Node.InputAttribute inputAttribute = link.InputAttribute;
+            XNode.Node.OutputAttribute outputAttribute = link.OutputAttribute;
+            List<PropertyAttribute> propertyAttributes = NodeEditorUtilities.GetCachedPropertyAttribs(node.GetType(), property.name);
+
+            float spacePadding = 0;
+            foreach (var attr in propertyAttributes) {
+                if (attr is SpaceAttribute) {
+                    spacePadding += (attr as SpaceAttribute).height;
+                }
+            }
+
+            if (inputAttribute != null) {
+                EditorGUILayout.LabelField(label ?? new GUIContent(property.displayName));
+
+                rect = GUILayoutUtility.GetLastRect();
+                rect.position = rect.position - new Vector2(16, -spacePadding);
+            }
+            // If property is an output, display a text label and put a port handle on the right side
+            else if (outputAttribute != null) {
+                // Get data from [Output] attribute
+                bool dynamicPortList = outputAttribute.dynamicPortList;
+                XNode.Node.ShowBackingValue showBacking = outputAttribute.backingValue;
+
+                EditorGUILayout.LabelField(label ?? new GUIContent(property.displayName), NodeEditorResources.OutputPort, GUILayout.MinWidth(30));
+                rect = GUILayoutUtility.GetLastRect();
+                rect.position = rect.position + new Vector2(rect.width, spacePadding);
+            }
+
+            rect.size = new Vector2(16, 16);
+
+            NodeEditor editor = NodeEditor.GetEditor(node, NodeEditorWindow.current);
+            Color backgroundColor = editor.GetTint();
+            Color col = NodeEditorWindow.current.graphEditor.GetLinkColor(link);
+            DrawPortHandle(rect, backgroundColor, col);
+
+            // Register the handle position
+            Vector2 portPos = rect.center;
+            NodeEditor.linkPositions[con] = portPos;
+        }
+
         private static System.Type GetType(SerializedProperty property) {
             System.Type parentType = property.serializedObject.targetObject.GetType();
             System.Reflection.FieldInfo fi = parentType.GetFieldInfo(property.name);
@@ -313,7 +361,7 @@ namespace XNodeEditor {
             List<XNode.NodePort> dynamicPorts = indexedPorts.OrderBy(x => x.index).Select(x => x.port).ToList();
 
             node.UpdatePorts();
-            
+
             ReorderableList list = null;
             Dictionary<string, ReorderableList> rlc;
             if (reorderableListCache.TryGetValue(serializedObject.targetObject, out rlc)) {
@@ -328,7 +376,7 @@ namespace XNodeEditor {
             }
             list.list = dynamicPorts;
             list.DoLayoutList();
-            
+
         }
 
         private static ReorderableList CreateReorderableList(string fieldName, List<XNode.NodePort> dynamicPorts, SerializedProperty arrayData, Type type, SerializedObject serializedObject, XNode.NodePort.IO io, XNode.Node.ConnectionType connectionType, XNode.Node.TypeConstraint typeConstraint, Action<ReorderableList> onCreation) {
@@ -349,7 +397,7 @@ namespace XNodeEditor {
                         EditorGUI.PropertyField(rect, itemData, true);
                     } else EditorGUI.LabelField(rect, port != null ? port.fieldName : "");
                     if (port != null) {
-                        Vector2 pos = rect.position + (port.IsOutput?new Vector2(rect.width + 6, 0) : new Vector2(-36, 0));
+                        Vector2 pos = rect.position + (port.IsOutput ? new Vector2(rect.width + 6, 0) : new Vector2(-36, 0));
                         NodeEditorGUILayout.PortField(pos, port);
                     }
                 };

@@ -7,6 +7,7 @@ namespace XNode {
     /// <summary> Precaches reflection data in editor so we won't have to do it runtime </summary>
     public static class NodeDataCache {
         private static PortDataCache portDataCache;
+        private static Dictionary<System.Type, List<NodeLinkDefinition>> linkCache = new Dictionary<System.Type, List<NodeLinkDefinition>>();
         private static bool Initialized { get { return portDataCache != null; } }
 
         /// <summary> Update static ports and dynamic ports managed by DynamicPortLists to reflect class fields. </summary>
@@ -67,14 +68,14 @@ namespace XNode {
                     ports.Add(staticPort.fieldName, port);
                 }
             }
-            
+
             // Finally, make sure dynamic list port settings correspond to the settings of their "backing port"
             foreach (NodePort listPort in dynamicListPorts) {
                 // At this point we know that ports here are dynamic list ports
                 // which have passed name/"backing port" checks, ergo we can proceed more safely.
                 string backingPortName = listPort.fieldName.Split(' ')[0];
                 NodePort backingPort = staticPorts[backingPortName];
-                
+
                 // Update port constraints. Creating a new port instead will break the editor, mandating the need for setters.
                 listPort.ValueType = GetBackingValueType(backingPort.ValueType);
                 listPort.direction = backingPort.direction;
@@ -86,7 +87,7 @@ namespace XNode {
         /// <summary>
         /// Extracts the underlying types from arrays and lists, the only collections for dynamic port lists
         /// currently supported. If the given type is not applicable (i.e. if the dynamic list port was not
-        /// defined as an array or a list), returns the given type itself. 
+        /// defined as an array or a list), returns the given type itself.
         /// </summary>
         private static System.Type GetBackingValueType(System.Type portValType) {
             if (portValType.HasElementType) {
@@ -105,19 +106,19 @@ namespace XNode {
             // Thus, we need to check for attributes... (but at least we don't need to look at all fields this time)
             string[] fieldNameParts = port.fieldName.Split(' ');
             if (fieldNameParts.Length != 2) return false;
-            
+
             FieldInfo backingPortInfo = port.node.GetType().GetField(fieldNameParts[0]);
             if (backingPortInfo == null) return false;
-            
+
             object[] attribs = backingPortInfo.GetCustomAttributes(true);
             return attribs.Any(x => {
                 Node.InputAttribute inputAttribute = x as Node.InputAttribute;
                 Node.OutputAttribute outputAttribute = x as Node.OutputAttribute;
                 return inputAttribute != null && inputAttribute.dynamicPortList ||
-                       outputAttribute != null && outputAttribute.dynamicPortList;
+                    outputAttribute != null && outputAttribute.dynamicPortList;
             });
         }
-        
+
         /// <summary> Cache node types </summary>
         private static void BuildCache() {
             portDataCache = new PortDataCache();
@@ -137,7 +138,6 @@ namespace XNode {
                     case "UnityEngine":
                     case "System":
                     case "mscorlib":
-                    case "Unity":
                     case "Microsoft":
                         continue;
                     default:
@@ -162,22 +162,75 @@ namespace XNode {
             return fieldInfo;
         }
 
+        public static NodeLinkDefinition GetLinkCacheInfo(System.Type nodeType, string fieldName) {
+            if (linkCache.TryGetValue(nodeType, out List<NodeLinkDefinition> info)) {
+                return info.Find(x => x.FieldName == fieldName);
+            }
+            return null;
+        }
+
+        public static List<NodeLinkDefinition> GetOutputLinks(System.Type nodeType) {
+            if (linkCache.TryGetValue(nodeType, out List<NodeLinkDefinition> info)) {
+                return info.Where(x => x.OutputAttribute != null).ToList();
+            }
+            return new List<NodeLinkDefinition>();
+        }
+
+        public static List<NodeLinkDefinition> GetInputLinks(System.Type nodeType) {
+            if (linkCache.TryGetValue(nodeType, out List<NodeLinkDefinition> info)) {
+                return info.Where(x => x.InputAttribute != null).ToList();
+            }
+            return new List<NodeLinkDefinition>();
+        }
+
+        public static List<NodeLinkDefinition> GetLinks(System.Type nodeType) {
+            if (linkCache.TryGetValue(nodeType, out List<NodeLinkDefinition> info)) {
+                return info;
+            }
+            return new List<NodeLinkDefinition>();
+        }
+
         private static void CachePorts(System.Type nodeType) {
             List<System.Reflection.FieldInfo> fieldInfo = GetNodeFields(nodeType);
+            System.Type baseType = typeof(NodeLink);
 
             for (int i = 0; i < fieldInfo.Count; i++) {
 
                 //Get InputAttribute and OutputAttribute
-                object[] attribs = fieldInfo[i].GetCustomAttributes(true);
+                FieldInfo field = fieldInfo[i];
+                object[] attribs = field.GetCustomAttributes(true);
                 Node.InputAttribute inputAttrib = attribs.FirstOrDefault(x => x is Node.InputAttribute) as Node.InputAttribute;
                 Node.OutputAttribute outputAttrib = attribs.FirstOrDefault(x => x is Node.OutputAttribute) as Node.OutputAttribute;
 
                 if (inputAttrib == null && outputAttrib == null) continue;
 
-                if (inputAttrib != null && outputAttrib != null) Debug.LogError("Field " + fieldInfo[i].Name + " of type " + nodeType.FullName + " cannot be both input and output.");
+                if (inputAttrib != null && outputAttrib != null) Debug.LogError("Field " + field.Name + " of type " + nodeType.FullName + " cannot be both input and output.");
                 else {
-                    if (!portDataCache.ContainsKey(nodeType)) portDataCache.Add(nodeType, new List<NodePort>());
-                    portDataCache[nodeType].Add(new NodePort(fieldInfo[i]));
+                    System.Type linkType = field.FieldType;
+                    System.Type type = field.FieldType;
+                    bool isNodeLink = baseType.IsAssignableFrom(type);
+                    System.Type genericType = type.IsGenericType ? type.GetGenericTypeDefinition() : null;
+                    bool isNodeLinkList = false;
+                    if (genericType == typeof(List<>)) {
+                        linkType = type.GetGenericArguments() [0];
+                        isNodeLinkList = baseType.IsAssignableFrom(linkType);
+                    }
+
+                    if (isNodeLink || isNodeLinkList) {
+                        if (!linkCache.ContainsKey(nodeType)) linkCache.Add(nodeType, new List<NodeLinkDefinition>());
+                        linkCache[nodeType].Add(new NodeLinkDefinition {
+                            IsList = isNodeLinkList,
+                                LinkType = linkType,
+                                FieldType = type,
+                                InputAttribute = inputAttrib,
+                                OutputAttribute = outputAttrib,
+                                FieldName = field.Name,
+                                FieldInfo = field,
+                        });
+                    } else {
+                        if (!portDataCache.ContainsKey(nodeType)) portDataCache.Add(nodeType, new List<NodePort>());
+                        portDataCache[nodeType].Add(new NodePort(field));
+                    }
                 }
             }
         }

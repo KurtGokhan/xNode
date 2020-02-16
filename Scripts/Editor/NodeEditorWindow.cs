@@ -11,8 +11,8 @@ namespace XNodeEditor {
         public static NodeEditorWindow current;
 
         /// <summary> Stores node positions for all nodePorts. </summary>
-        public Dictionary<XNode.NodePort, Rect> portConnectionPoints { get { return _portConnectionPoints; } }
-        private Dictionary<XNode.NodePort, Rect> _portConnectionPoints = new Dictionary<XNode.NodePort, Rect>();
+        public Dictionary<XNode.NodePort, Rect> portConnectionPoints { get; } = new Dictionary<XNode.NodePort, Rect>();
+        public Dictionary<XNode.NodeLinkPort, Rect> linkConnectionPoints { get; } = new Dictionary<XNode.NodeLinkPort, Rect>();
         [SerializeField] private NodePortReference[] _references = new NodePortReference[0];
         [SerializeField] private Rect[] _rects = new Rect[0];
 
@@ -61,7 +61,7 @@ namespace XNodeEditor {
                 for (int i = 0; i < length; i++) {
                     XNode.NodePort nodePort = _references[i].GetNodePort();
                     if (nodePort != null)
-                        _portConnectionPoints.Add(nodePort, _rects[i]);
+                        portConnectionPoints.Add(nodePort, _rects[i]);
                 }
             }
         }
