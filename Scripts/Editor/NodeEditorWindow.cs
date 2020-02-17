@@ -99,7 +99,7 @@ namespace XNodeEditor {
             NodeGraphEditor graphEditor = NodeGraphEditor.GetEditor(graph, this);
             if (this.graphEditor != graphEditor) {
                 this.graphEditor = graphEditor;
-                graphEditor.OnOpen();
+                if(graphEditor != null) graphEditor.OnOpen();
             }
         }
 
