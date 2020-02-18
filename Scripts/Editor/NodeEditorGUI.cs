@@ -463,6 +463,14 @@ namespace XNodeEditor {
             List<XNode.NodePort> removeEntries = new List<XNode.NodePort>();
 
             if (e.type == EventType.Layout) culledNodes = new List<XNode.Node>();
+
+            Action<NodeLinkPort> selectLinkIfHovered = link =>
+            {
+                if (link == null || !linkConnectionPoints.ContainsKey(link)) return;
+                Rect r = GridToWindowRectNoClipped(linkConnectionPoints[link]);
+                if (r.Contains(mousePos)) hoveredLink = link;
+            };
+
             for (int n = 0; n < graph.nodes.Count; n++) {
                 // Skip null nodes. The user could be in the process of renaming scripts, so removing them at this point is not advisable.
                 if (graph.nodes[n] == null) continue;
@@ -581,17 +589,13 @@ namespace XNodeEditor {
                         if (r.Contains(mousePos)) hoveredPort = output;
                     }
 
-                    var links = XNode.NodeDataCache.GetLinks(node.GetType()).Select(x => new NodeLinkPort(node, x));
-
-                    //Check if we are hovering any of this nodes ports
-                    //Check input ports
-                    foreach (NodeLinkPort link in links) {
-                        //Check if port rect is available
-                        if (!linkConnectionPoints.ContainsKey(link)) continue;
-                        Rect r = GridToWindowRectNoClipped(linkConnectionPoints[link]);
-                        if (r.Contains(mousePos)) hoveredLink = link;
-                    }
+                    var links = NodeDataCache.GetLinks(node.GetType()).Select(x => new NodeLinkPort(node, x));
+                    foreach (NodeLinkPort link in links) selectLinkIfHovered(link);
                 }
+
+                var selectedLink = Selection.activeObject as NodeLink;
+                selectLinkIfHovered(selectedLink?.GetFromPort());
+                selectLinkIfHovered(selectedLink?.GetToPort());
 
                 GUILayout.EndArea();
             }
