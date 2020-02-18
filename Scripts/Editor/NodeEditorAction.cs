@@ -15,6 +15,8 @@ namespace XNodeEditor {
         public static XNode.Node[] copyBuffer = null;
 
         private bool IsDraggingPort { get { return draggedOutput != null; } }
+        private bool IsDraggingLink { get { return draggedOutputLink != null; } }
+        private bool IsHoveringLink { get { return hoveredLink != null; } }
         private bool IsHoveringPort { get { return hoveredPort != null; } }
         private bool IsHoveringNode { get { return hoveredNode != null; } }
         private bool IsHoveringReroute { get { return hoveredReroute.port != null; } }
@@ -23,6 +25,10 @@ namespace XNodeEditor {
         [NonSerialized] private XNode.NodePort draggedOutput = null;
         [NonSerialized] private XNode.NodePort draggedOutputTarget = null;
         [NonSerialized] private XNode.NodePort autoConnectOutput = null;
+        [NonSerialized] public XNode.NodeLinkPort hoveredLink = null;
+        [NonSerialized] private XNode.NodeLinkPort draggedOutputLink = null;
+        [NonSerialized] private XNode.NodeLinkPort draggedOutputTargetLink = null;
+        [NonSerialized] private XNode.NodeLinkPort autoConnectOutputLink = null;
         [NonSerialized] private List<Vector2> draggedOutputReroutes = new List<Vector2>();
         private RerouteReference hoveredReroute = new RerouteReference();
         private List<RerouteReference> selectedReroutes = new List<RerouteReference>();
@@ -63,6 +69,13 @@ namespace XNodeEditor {
                                 draggedOutputTarget = hoveredPort;
                             } else {
                                 draggedOutputTarget = null;
+                            }
+                            Repaint();
+                        } else if (IsDraggingLink) {
+                            if (IsHoveringLink && hoveredLink.IsInput && !draggedOutputLink.IsConnectedTo(hoveredLink)) {
+                                draggedOutputTargetLink = hoveredLink;
+                            } else {
+                                draggedOutputTargetLink = null;
                             }
                             Repaint();
                         } else if (currentActivity == NodeActivity.HoldNode) {
@@ -161,10 +174,26 @@ namespace XNodeEditor {
                                     if (NodeEditor.onUpdateNode != null) NodeEditor.onUpdateNode(node);
                                 }
                             }
+                        } else if (IsHoveringLink) {
+                            if (hoveredLink.IsOutput) {
+                                draggedOutputLink = hoveredLink;
+                                autoConnectOutputLink = hoveredLink;
+                            } else {
+                                hoveredLink.VerifyConnections();
+                                autoConnectOutputLink = null;
+                                if (hoveredLink.IsConnected) {
+                                    XNode.Node node = hoveredLink.Node;
+                                    XNode.NodeLink link = hoveredLink.DisconnectSelf();
+
+                                    draggedOutputLink = link.GetFromPort();
+                                    draggedOutputTargetLink = hoveredLink;
+                                    NodeEditor.onUpdateNode?.Invoke(node);
+                                }
+                            }
                         } else if (IsHoveringNode && IsHoveringTitle(hoveredNode)) {
                             // If mousedown on node header, select or deselect
                             if (!Selection.Contains(hoveredNode)) {
-                                SelectNode(hoveredNode, e.control || e.shift);
+                                SelectObject(hoveredNode, e.control || e.shift);
                                 if (!e.control && !e.shift) selectedReroutes.Clear();
                             } else if (e.control || e.shift) DeselectNode(hoveredNode);
 
@@ -228,6 +257,25 @@ namespace XNodeEditor {
                             draggedOutputTarget = null;
                             EditorUtility.SetDirty(graph);
                             if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
+                        } else if (IsDraggingLink) {
+                            // If connection is valid, save it
+                            if (draggedOutputTargetLink != null && draggedOutputLink.CanConnectTo(draggedOutputTargetLink)) {
+                                XNode.NodeLink link = draggedOutputLink.Connect(draggedOutputTargetLink);
+                                SelectObject(link, false);
+                            }
+                            // Destroy link if there is no target node
+                            else if (draggedOutputTargetLink == null && NodeEditorPreferences.GetSettings().dragToCreate && autoConnectOutputLink != null) {
+                                GenericMenu menu = new GenericMenu();
+                                graphEditor.AddContextMenuItems(menu);
+                                menu.DropDown(new Rect(Event.current.mousePosition, Vector2.zero));
+                            } else {
+                                draggedOutputLink.GetConnectionTo(null as XNode.Node)?.Destroy();
+                            }
+                            //Release dragged connection
+                            draggedOutputLink = null;
+                            draggedOutputTargetLink = null;
+                            EditorUtility.SetDirty(graph);
+                            if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
                         } else if (currentActivity == NodeActivity.DragNode) {
                             IEnumerable<XNode.Node> nodes = Selection.objects.Where(x => x is XNode.Node).Select(x => x as XNode.Node);
                             foreach (XNode.Node node in nodes) EditorUtility.SetDirty(node);
@@ -244,7 +292,7 @@ namespace XNodeEditor {
                         // If click node header, select it.
                         if (currentActivity == NodeActivity.HoldNode && !(e.control || e.shift)) {
                             selectedReroutes.Clear();
-                            SelectNode(hoveredNode, false);
+                            SelectObject(hoveredNode, false);
 
                             // Double click to center node
                             if (isDoubleClick) {
@@ -273,14 +321,16 @@ namespace XNodeEditor {
                             } else if (IsHoveringPort) {
                                 ShowPortContextMenu(hoveredPort);
                             } else if (IsHoveringNode && IsHoveringTitle(hoveredNode)) {
-                                if (!Selection.Contains(hoveredNode)) SelectNode(hoveredNode, false);
+                                if (!Selection.Contains(hoveredNode)) SelectObject(hoveredNode, false);
                                 autoConnectOutput = null;
+                                autoConnectOutputLink = null;
                                 GenericMenu menu = new GenericMenu();
                                 NodeEditor.GetEditor(hoveredNode, this).AddContextMenuItems(menu);
                                 menu.DropDown(new Rect(Event.current.mousePosition, Vector2.zero));
                                 e.Use(); // Fixes copy/paste context menu appearing in Unity 5.6.6f2 - doesn't occur in 2018.3.2f1 Probably needs to be used in other places.
-                            } else if (!IsHoveringNode) {
+                            } else if (!IsHoveringNode && !IsHoveringLink) {
                                 autoConnectOutput = null;
+                                autoConnectOutputLink = null;
                                 GenericMenu menu = new GenericMenu();
                                 graphEditor.AddContextMenuItems(menu);
                                 menu.DropDown(new Rect(Event.current.mousePosition, Vector2.zero));
@@ -306,11 +356,15 @@ namespace XNodeEditor {
                             }
                         } else {
                             foreach (XNode.Node node in graph.nodes) {
-                                SelectNode(node, true);
+                                SelectObject(node, true);
                             }
                         }
                         Repaint();
                     }
+                    if (e.keyCode == KeyCode.Delete) {
+                        DeleteSelectedNodeLink();
+                    }
+
                     break;
                 case EventType.ValidateCommand:
                 case EventType.ExecuteCommand:
@@ -400,6 +454,14 @@ namespace XNodeEditor {
             }
         }
 
+        /// <summary> Delete the currently selected Node Link </summary>
+        public void DeleteSelectedNodeLink() {
+            if (Selection.objects.Length == 1 && Selection.activeObject is XNode.NodeLink) {
+                XNode.NodeLink link = Selection.activeObject as XNode.NodeLink;
+                link.Destroy();
+            }
+        }
+
         /// <summary> Draw this node on top of other nodes by placing it last in the graph.nodes list </summary>
         public void MoveNodeToTop(XNode.Node node) {
             int index;
@@ -478,7 +540,7 @@ namespace XNodeEditor {
                 NoodleStroke stroke = graphEditor.GetNoodleStroke(draggedOutput, null);
 
                 Rect fromRect;
-                if (!_portConnectionPoints.TryGetValue(draggedOutput, out fromRect)) return;
+                if (!portConnectionPoints.TryGetValue(draggedOutput, out fromRect)) return;
                 List<Vector2> gridPoints = new List<Vector2>();
                 gridPoints.Add(fromRect.center);
                 for (int i = 0; i < draggedOutputReroutes.Count; i++) {
@@ -504,6 +566,39 @@ namespace XNodeEditor {
                     NodeEditorGUILayout.DrawPortHandle(rect, bgcol, frcol);
                 }
             }
+
+            if (IsDraggingLink) {
+                Gradient gradient = graphEditor.GetNoodleGradient(draggedOutputLink, null);
+                float thickness = graphEditor.GetNoodleThickness(null);
+                NoodlePath path = graphEditor.GetNoodlePath(draggedOutputLink, null);
+                NoodleStroke stroke = graphEditor.GetNoodleStroke(draggedOutputLink, null);
+
+                Rect fromRect;
+                if (!linkConnectionPoints.TryGetValue(draggedOutputLink, out fromRect)) return;
+                List<Vector2> gridPoints = new List<Vector2>();
+                gridPoints.Add(fromRect.center);
+                if (draggedOutputTargetLink != null) gridPoints.Add(linkConnectionPoints[draggedOutputTargetLink].center);
+                else gridPoints.Add(WindowToGridPosition(Event.current.mousePosition));
+
+                DrawNoodle(gradient, path, stroke, thickness, gridPoints);
+
+                Color bgcol = Color.black;
+                Color frcol = gradient.colorKeys[0].color;
+                bgcol.a = 0.6f;
+                frcol.a = 0.6f;
+
+                // TODO:
+                //// Loop through reroute points again and draw the points
+                //for (int i = 0; i < draggedOutputReroutes.Count; i++)
+                //{
+                //    // Draw reroute point at position
+                //    Rect rect = new Rect(draggedOutputReroutes[i], new Vector2(16, 16));
+                //    rect.position = new Vector2(rect.position.x - 8, rect.position.y - 8);
+                //    rect = GridToWindowRect(rect);
+
+                //    NodeEditorGUILayout.DrawPortHandle(rect, bgcol, frcol);
+                //}
+            }
         }
 
         bool IsHoveringTitle(XNode.Node node) {
@@ -511,28 +606,43 @@ namespace XNodeEditor {
             //Get node position
             Vector2 nodePos = GridToWindowPosition(node.position);
             float width;
+            float height = graphEditor.GetHeaderHeight(node);
             Vector2 size;
             if (nodeSizes.TryGetValue(node, out size)) width = size.x;
             else width = 200;
-            Rect windowRect = new Rect(nodePos, new Vector2(width / zoom, 30 / zoom));
+            Rect windowRect = new Rect(nodePos, new Vector2(width / zoom, height / zoom));
             return windowRect.Contains(mousePos);
         }
 
         /// <summary> Attempt to connect dragged output to target node </summary>
         public void AutoConnect(XNode.Node node) {
-            if (autoConnectOutput == null) return;
+            if (autoConnectOutput != null) {
+                // Find input port of same type
+                XNode.NodePort inputPort = node.Ports.FirstOrDefault(x => x.IsInput && x.ValueType == autoConnectOutput.ValueType);
+                // Fallback to input port
+                if (inputPort == null) inputPort = node.Ports.FirstOrDefault(x => x.IsInput);
+                // Autoconnect
+                if (inputPort != null) autoConnectOutput.Connect(inputPort);
 
-            // Find input port of same type
-            XNode.NodePort inputPort = node.Ports.FirstOrDefault(x => x.IsInput && x.ValueType == autoConnectOutput.ValueType);
-            // Fallback to input port
-            if (inputPort == null) inputPort = node.Ports.FirstOrDefault(x => x.IsInput);
-            // Autoconnect
-            if (inputPort != null) autoConnectOutput.Connect(inputPort);
+                // Save changes
+                EditorUtility.SetDirty(graph);
+                if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
+                autoConnectOutput = null;
+            }
 
-            // Save changes
-            EditorUtility.SetDirty(graph);
-            if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
-            autoConnectOutput = null;
+            if (autoConnectOutputLink != null) {
+                var linkType = autoConnectOutputLink.Link.LinkType;
+                var inputLinks = XNode.NodeDataCache.GetInputLinks(node.GetType());
+                var inputPort = inputLinks.FirstOrDefault(x => x.LinkType == linkType);
+                inputPort = inputPort ?? inputLinks.FirstOrDefault(x => x.LinkType.IsAssignableFrom(linkType));
+                if (inputPort != null) {
+                    XNode.NodeLink link = autoConnectOutputLink.Connect(new XNode.NodeLinkPort(node, inputPort));
+                    SelectObject(link, false);
+                    EditorUtility.SetDirty(graph);
+                    if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
+                }
+                autoConnectOutputLink = null;
+            }
         }
     }
 }

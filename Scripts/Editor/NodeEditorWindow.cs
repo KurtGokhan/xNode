@@ -11,8 +11,8 @@ namespace XNodeEditor {
         public static NodeEditorWindow current;
 
         /// <summary> Stores node positions for all nodePorts. </summary>
-        public Dictionary<XNode.NodePort, Rect> portConnectionPoints { get { return _portConnectionPoints; } }
-        private Dictionary<XNode.NodePort, Rect> _portConnectionPoints = new Dictionary<XNode.NodePort, Rect>();
+        public Dictionary<XNode.NodePort, Rect> portConnectionPoints { get; } = new Dictionary<XNode.NodePort, Rect>();
+        public Dictionary<XNode.NodeLinkPort, Rect> linkConnectionPoints { get; } = new Dictionary<XNode.NodeLinkPort, Rect>();
         [SerializeField] private NodePortReference[] _references = new NodePortReference[0];
         [SerializeField] private Rect[] _rects = new Rect[0];
 
@@ -61,7 +61,7 @@ namespace XNodeEditor {
                 for (int i = 0; i < length; i++) {
                     XNode.NodePort nodePort = _references[i].GetNodePort();
                     if (nodePort != null)
-                        _portConnectionPoints.Add(nodePort, _rects[i]);
+                        portConnectionPoints.Add(nodePort, _rects[i]);
                 }
             }
         }
@@ -99,7 +99,7 @@ namespace XNodeEditor {
             NodeGraphEditor graphEditor = NodeGraphEditor.GetEditor(graph, this);
             if (this.graphEditor != graphEditor) {
                 this.graphEditor = graphEditor;
-                graphEditor.OnOpen();
+                if(graphEditor != null) graphEditor.OnOpen();
             }
         }
 
@@ -162,7 +162,7 @@ namespace XNodeEditor {
             return new Vector2(xOffset, yOffset);
         }
 
-        public void SelectNode(XNode.Node node, bool add) {
+        public void SelectObject(Object node, bool add) {
             if (add) {
                 List<Object> selection = new List<Object>(Selection.objects);
                 selection.Add(node);
