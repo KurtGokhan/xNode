@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace XNode {
@@ -260,7 +261,20 @@ namespace XNode {
             foreach (NodePort port in Ports) port.ClearConnections();
         }
 
-#region Attributes
+        /// <summary> Disconnect every link from this node </summary>
+        public void ClearLinks() {
+            var linkPorts = NodeDataCache.GetLinks(GetType()).Select(x => new NodeLinkPort(this, x));
+            var allLinks = linkPorts.SelectMany(x => x.GetConnections());
+            foreach (NodeLink link in allLinks) link.Destroy();
+        }
+
+        /// <summary> Set link fields to null where the link does not belong this node </summary>
+        public void ClearLinksAssignments() {
+            var linkPorts = NodeDataCache.GetLinks(GetType()).Select(x => new NodeLinkPort(this, x));
+            var allLinks = linkPorts.SelectMany(x => x.GetConnections().Select(y => Tuple.Create(x, y)));
+            foreach (var link in allLinks) link.Item1.Link.Disconnect(this, link.Item2);
+        }
+        #region Attributes
         /// <summary> Mark a serializable field as an input port. You can access this through <see cref="GetInputPort(string)"/> </summary>
         [AttributeUsage(AttributeTargets.Field)]
         public class InputAttribute : Attribute {

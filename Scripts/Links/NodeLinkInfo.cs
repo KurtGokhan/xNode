@@ -42,20 +42,24 @@ namespace XNode {
             link.UpdateName();
         }
         public void Disconnect(Node node, NodeLink link) {
+            Predicate<NodeLink> removePredicate = (x) => (!link && !x) || Equals(x, link);
+
             bool result;
             object value = FieldInfo.GetValue(node);
             if (IsList) {
-                result = (bool) FieldType.GetMethod("Remove").Invoke(value, new [] { link });
+                result = ((int) FieldType.GetMethod("RemoveAll").Invoke(value, new [] { removePredicate })) > 0;
             } else {
-                result = Equals(value, link);
+                result = removePredicate(value as NodeLink);
                 if (result) FieldInfo.SetValue(node, null);
             }
 
             if (result && link) {
-                if (IsInput) {
+                if (IsInput && link.to == node) {
                     link.to = null;
                     link.toField = null;
-                } else {
+                }
+
+                if(IsOutput && link.from == node) {
                     link.from = null;
                     link.fromField = null;
                 }

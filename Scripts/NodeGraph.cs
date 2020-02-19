@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -31,6 +31,7 @@ namespace XNode {
             Node node = ScriptableObject.Instantiate(original);
             node.graph = this;
             node.ClearConnections();
+            node.ClearLinksAssignments();
             nodes.Add(node);
             return node;
         }
@@ -39,6 +40,7 @@ namespace XNode {
         /// <param name="node"> The node to remove </param>
         public virtual void RemoveNode(Node node) {
             node.ClearConnections();
+            node.ClearLinks();
             nodes.Remove(node);
             if (Application.isPlaying) Destroy(node);
         }

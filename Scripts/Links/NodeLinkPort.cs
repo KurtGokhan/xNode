@@ -91,6 +91,7 @@ namespace XNode {
             var nullLinks = GetConnections().Select((x, i) => Tuple.Create(x, i)).Where(y => y.Item1 == null).ToList();
 
             for (int i = 0; i < nullLinks.Count; i++) {
+                Debug.LogWarning($"A link was null or destroyed for node '{Node.name}'. Removing it from the node.");
                 Link.Disconnect(Node, null);
             }
 
