@@ -265,7 +265,7 @@ namespace XNode {
         public void ClearLinks() {
             var linkPorts = NodeDataCache.GetLinks(GetType()).Select(x => new NodeLinkPort(this, x));
             var allLinks = linkPorts.SelectMany(x => x.GetConnections());
-            foreach (NodeLink link in allLinks) link.Destroy();
+            foreach (NodeLink link in allLinks) if(link) link.Destroy();
         }
 
         /// <summary> Set link fields to null where the link does not belong this node </summary>
